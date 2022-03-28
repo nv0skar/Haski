@@ -1,18 +1,7 @@
 // Haski - Oscar
 // The use of this is restricted to only the authors
 
-use chrono::{DateTime, Utc};
 use wyhash::WyHash;
-use yahoo_finance_api as dataProvider;
-use tokio_test;
-
-pub mod dataFetcher { 
-    pub fn retrieve(start: super::DateTime<super::Utc>, end: super::DateTime<super::Utc>) -> Vec<super::dataProvider::Quote> {
-        let provider = super::dataProvider::YahooConnector::new();
-        let resp = super::tokio_test::block_on(provider.get_quote_history("BTC-EUR", start, end)).unwrap();
-        resp.quotes().unwrap()
-    }
-}
 
 pub mod heart {
     use std::hash::Hasher;
@@ -24,19 +13,23 @@ pub mod heart {
         Hold
     }
 
-    pub fn startLearning(data: Vec<super::dataProvider::Quote>, lookBack: usize, lookForward: usize, patternThreshold: usize) {
+    pub fn startLearning(startDate: String, endDate: String, pair: String, lookBack: usize, lookForwad: usize, patternThreshold: usize) {
+        let data = crate::data::fetcher::retrieve(crate::DateTime::<crate::Utc>::from_utc(crate::NaiveDate::parse_from_str(&startDate, "%Y-%m-%d").unwrap().and_hms(0, 0, 0), crate::Utc), crate::DateTime::<crate::Utc>::from_utc(crate::NaiveDate::parse_from_str(&endDate, "%Y-%m-%d").unwrap().and_hms(23, 59, 59), crate::Utc), &pair);
+
         let db = crate::io::file::openDB().unwrap();
-        
-        let _ = crate::io::file::writeConfig(&db, lookBack, lookForward, patternThreshold);
+
+        let _ = crate::io::file::writeConfig(&db, &pair, lookBack, lookForwad, patternThreshold);
+
+        let mut patternsFound: usize = 0;
         
         let mut patterns: Vec<usize> = vec![];
         let mut patternsAction: Vec<Actions> = vec![];
 
         for itemNum in 0..data.len() {
-            if (itemNum < (lookBack+1)) || ((data.len()-itemNum) < lookForward) { continue }
+            if (itemNum < (lookBack+1)) || ((data.len()-itemNum) < lookForwad) { continue }
             let mut sumForwardValues: f64 = 0.0;
-            for itemNumForward in itemNum..(lookForward+itemNum) { sumForwardValues += data[itemNumForward].close }
-            let averageForwardValues = sumForwardValues / (lookForward as f64);
+            for itemNumForward in itemNum..(lookForwad+itemNum) { sumForwardValues += data[itemNumForward].close }
+            let averageForwardValues = sumForwardValues / (lookForwad as f64);
 
             let priceDeviation = ((averageForwardValues / data[itemNum].close) * 100 as f64) - 100 as f64;
 
@@ -59,7 +52,10 @@ pub mod heart {
 
             let calculatedHash = hash.finish();
             let _ = crate::io::file::writePattern(&db, calculatedHash, &patternsAction[itemNum]);
-            crate::utils::show::print("Learner", &format!("Pattern found! Hash: {}; Signal: {:?}", calculatedHash, patternsAction[itemNum]))
+            patternsFound += 1;
+            crate::utils::show::print("Learner", &format!("#{} pattern found! Hash: {}; Signal: {:?}", &patternsFound, &calculatedHash, &patternsAction[itemNum]))
         }
+
+        crate::utils::show::print("Learner", &format!("Training finished! Patterns found: {}; Pair {}; Start date: {}; End date: {}; Pattern threshold: {}; Previous values feed: {}; Forwad values feed: {}", &patternsFound, &pair, &startDate, &endDate, &patternThreshold, &lookBack, &lookForwad))
     }
 }

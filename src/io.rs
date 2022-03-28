@@ -2,7 +2,7 @@
 // The use of this is restricted to only the authors
 
 use std::collections::HashMap;
-use sled::{Result, open, Db, Error};
+use sled::{ Result, open, Db, Error };
 
 pub mod file {
     pub fn openDB() -> Result<super::Db, super::Error> { super::open("db") }
@@ -18,13 +18,19 @@ pub mod file {
         Ok(())
     }
 
-    pub fn writeConfig(db: &super::Db, lookBack: usize, lookForward: usize, patternThreshold: usize) -> super::Result<()> {
+    pub fn getConfig(db: &super::Db) -> super::Result<()> {
+        let toRetrieve = ["c.pA", "c.lB", "c.lF", "c.pT"];
+        for item in toRetrieve { db.get(&item)?; }
+        todo!();
+    }
+
+    pub fn writeConfig(db: &super::Db, pair: &String, lookBack: usize, lookForward: usize, patternThreshold: usize) -> super::Result<()> {
         let toInsert = super::HashMap::from([
             ("c.lB", lookBack.to_be_bytes()),
             ("c.lF", lookForward.to_be_bytes()),
             ("c.pT", patternThreshold.to_be_bytes()),
         ]);
-        for (key, value) in toInsert { db.insert(key, &value)?; }
+        let _ = db.insert("c.pA", pair.as_bytes()); for (key, value) in toInsert { db.insert(key, &value)?; }
         Ok(())
     }
 }

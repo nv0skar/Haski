@@ -12,24 +12,18 @@ pub mod argument {
 
     #[derive(Args, Debug)]
     pub struct Args2ParseLearner {
+        #[clap(short, long, default_value = "BTC-EUR")]
+        pub pair: String,
+        #[clap(long, default_value = "2015-01-01")]
+        pub startDate: String,
+        #[clap(long, default_value = "2020-01-01")]
+        pub endDate: String,
         #[clap(long, default_value_t = 16)]
-        pub previous: usize,
+        pub previousValues: usize,
         #[clap(long, default_value_t = 16)]
-        pub forward: usize,
+        pub forwadValues: usize,
         #[clap(long, default_value_t = 15)]
-        pub threshold: usize,
-        #[clap(long, default_value_t = 2015)]
-        pub startYear: usize,
-        #[clap(long, default_value_t = 01)]
-        pub startMonth: usize,
-        #[clap(long, default_value_t = 01)]
-        pub startDay: usize,
-        #[clap(long, default_value_t = 2020)]
-        pub endYear: usize,
-        #[clap(long, default_value_t = 01)]
-        pub endMonth: usize,
-        #[clap(long, default_value_t = 01)]
-        pub endDay: usize,
+        pub patternThreshold: usize,
     }
 
     pub fn parse() -> Args2Parse { Args2Parse::parse() }
