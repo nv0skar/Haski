@@ -8,7 +8,10 @@ mod data;
 mod trader;
 mod cli;
 mod utils;
+mod config;
 
+use std::collections::HashMap;
+use sled::{ Result, open, Db, Error };
 use chrono::{Utc, NaiveDate, DateTime};
 
 fn main() {

@@ -12,17 +12,17 @@ pub mod argument {
 
     #[derive(Args, Debug)]
     pub struct Args2ParseLearner {
-        #[clap(short, long, default_value = "BTC-EUR")]
+        #[clap(short, long, default_value = crate::config::defaults::trade::PAIR)]
         pub pair: String,
-        #[clap(long, default_value = "2015-01-01")]
+        #[clap(long, default_value = crate::config::defaults::trade::START_DATE)]
         pub startDate: String,
-        #[clap(long, default_value = "2020-01-01")]
+        #[clap(long, default_value = crate::config::defaults::trade::END_DATE)]
         pub endDate: String,
-        #[clap(long, default_value_t = 16)]
+        #[clap(long, default_value_t = crate::config::defaults::learn::PREVIOUS_VALUES)]
         pub previousValues: usize,
-        #[clap(long, default_value_t = 16)]
+        #[clap(long, default_value_t = crate::config::defaults::learn::FORWAD_VALUES)]
         pub forwadValues: usize,
-        #[clap(long, default_value_t = 15)]
+        #[clap(long, default_value_t = crate::config::defaults::learn::PATTERN_THRESHOLD)]
         pub patternThreshold: usize,
     }
 

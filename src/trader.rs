@@ -4,7 +4,7 @@
 use wyhash::WyHash;
 
 pub mod heart {
-    use std::hash::Hasher;
+    use std::{hash::Hasher, process::exit};
 
     #[derive(Debug)]
     pub enum Actions {
@@ -16,9 +16,32 @@ pub mod heart {
     pub fn startLearning(startDate: String, endDate: String, pair: String, lookBack: usize, lookForwad: usize, patternThreshold: usize) {
         let data = crate::data::fetcher::retrieve(crate::DateTime::<crate::Utc>::from_utc(crate::NaiveDate::parse_from_str(&startDate, "%Y-%m-%d").unwrap().and_hms(0, 0, 0), crate::Utc), crate::DateTime::<crate::Utc>::from_utc(crate::NaiveDate::parse_from_str(&endDate, "%Y-%m-%d").unwrap().and_hms(23, 59, 59), crate::Utc), &pair);
 
-        let db = crate::io::file::openDB().unwrap();
+        let db = crate::io::file::hashPatterns::openDB().unwrap();
 
-        let _ = crate::io::file::writeConfig(&db, &pair, lookBack, lookForwad, patternThreshold);
+        let storedConfig = crate::io::file::hashPatterns::getConfig(&db);
+        if let Some(value) = storedConfig.ClB.unwrap() { 
+            if ((value[7] as usize) != lookBack) && (lookBack != crate::config::defaults::learn::PREVIOUS_VALUES) {
+                drop(&db);
+                crate::utils::show::printError("Learner", &format!("Previous values to get value is different from the one in the database! (Value: {})", (value[7] as usize)));
+                exit(1);
+            }
+        }
+        if let Some(value) = storedConfig.ClF.unwrap() {
+            if ((value[7] as usize) != lookForwad) && (lookForwad != crate::config::defaults::learn::FORWAD_VALUES) {
+                drop(&db);
+                crate::utils::show::printError("Learner", &format!("Forwad values to get value is different from the one in the database! (Value: {})", (value[7] as usize)));
+                exit(1);
+            }
+        }
+        if let Some(value) = storedConfig.CpT.unwrap() {
+            if ((value[7] as usize) != patternThreshold) && (patternThreshold != crate::config::defaults::learn::PATTERN_THRESHOLD) {
+                drop(&db);
+                crate::utils::show::printError("Learner", &format!("Pattern Threshold value is different from the one in the database! (Value: {})", (value[7] as usize)));
+                exit(1);
+            }
+        }
+
+        let _ = crate::io::file::hashPatterns::writeConfig(&db, &pair, lookBack, lookForwad, patternThreshold);
 
         let mut patternsFound: usize = 0;
         
@@ -51,10 +74,12 @@ pub mod heart {
             hash.write(&patternValueDerivation);
 
             let calculatedHash = hash.finish();
-            let _ = crate::io::file::writePattern(&db, calculatedHash, &patternsAction[itemNum]);
+            let _ = crate::io::file::hashPatterns::writePattern(&db, calculatedHash, &patternsAction[itemNum]);
             patternsFound += 1;
             crate::utils::show::print("Learner", &format!("#{} pattern found! Hash: {}; Signal: {:?}", &patternsFound, &calculatedHash, &patternsAction[itemNum]))
         }
+
+        drop(db);
 
         crate::utils::show::print("Learner", &format!("Training finished! Patterns found: {}; Pair {}; Start date: {}; End date: {}; Pattern threshold: {}; Previous values feed: {}; Forwad values feed: {}", &patternsFound, &pair, &startDate, &endDate, &patternThreshold, &lookBack, &lookForwad))
     }
