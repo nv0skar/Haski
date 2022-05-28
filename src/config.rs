@@ -3,7 +3,7 @@
 
 pub mod defaults {
     pub mod db {
-        pub const DBPATH: &str = "./db";
+        pub const PATH: &str = "./training";
     }
 
     pub mod trade {

@@ -3,20 +3,45 @@
 
 #![allow(non_snake_case)]
 
-mod io;
-mod data;
-mod trader;
 mod cli;
-mod utils;
 mod config;
+mod data;
+mod io;
+mod plotter;
+mod trader;
+mod utils;
 
+use chrono::{Date, DateTime, Local, NaiveDate, Utc};
 use std::collections::HashMap;
-use sled::{ Result, open, Db, Error };
-use chrono::{Utc, NaiveDate, DateTime};
 
 fn main() {
-    let cli::argument::Args2Parse::Train(arguments) = cli::argument::parse(); {
-        utils::show::printTitle("Haski");
-        trader::heart::startLearning(arguments.startDate, arguments.endDate, arguments.pair, arguments.previousValues, arguments.forwadValues, arguments.patternThreshold);
+    let parsed = cli::parser::parse();
+    utils::show::printTitle("Haski");
+    match parsed.command {
+        cli::parser::Subcommands::Train {
+            pair,
+            startDate,
+            endDate,
+            previousValues,
+            forwadValues,
+            patternThreshold,
+        } => {
+            trader::heart::startLearning(
+                parsed.dbLocation,
+                startDate,
+                endDate,
+                pair,
+                previousValues,
+                forwadValues,
+                patternThreshold,
+            );
+        }
+        cli::parser::Subcommands::Backtest {
+            pair,
+            startDate,
+            endDate,
+        } => {
+            trader::heart::backtest(parsed.dbLocation, startDate, endDate, pair);
+        }
     }
 }

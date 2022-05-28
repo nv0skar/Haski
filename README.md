@@ -1,7 +1,33 @@
-<h1 style="color:#99E7C8;text-shadow: -2px 2px #2E37D1;font-size:40px", align="center">Haski</h1>
+<h1 style="color:#99E7C8;text-shadow: -2px 2px #2E37D1;font-size:40px", align="center">ハスキー</h1>
 
-<h4 align="center">Hash-powered trading bot 👽</h4>
+<h4 align="center">Experimental hash-powered stock forecaster 👽</h4>
 
-## <a name="development"></a>Development 🧑‍💻
-### <a name="developmentTODO"></a>TODO 🛸
-- [ ] Implement backtesting
+## <a name="what"></a>何？ ⭐️
+ハスキー (also called **Haski**) is a statistical forecast algorithm that was implemented as a stock forecaster.
+
+## <a name="how"></a>どうやって？ 🚀
+The Haski's algorithm iterate through all the values in a dataset. The process of finding a pattern for a value is:
+1. Calculate the `deviation` which is defined by the following formula:
+    ```
+    deviation = |((f / n * 100) - 100|
+    ```
+
+    Where:
+   - `f` average of a given number of values after the current one
+   - `n` the current value
+2. Check if `deviation` is greater than a given number, if it's not the following steps are skipped.
+3. If `deviation` is greater than `0` an up trend is predicted, otherwise is a down trend.
+4. Then, fetch a number of values previous to the current value and for each each of those values calculate the `back2FrontDeviation` defined by the following formaula (note that for the first value the `back2FrontDeviation` is not calculated):
+    ```
+    back2FrontDeviation = round(ln(|((h / z) * 100) - 100|))
+    ```
+
+    Where:
+   - `h` one of those previous values
+   - `z` the value before `h`
+    And:
+   - `round()` round the number to have no decimals
+5. Lastly, calculate a hash of all of the `back2FrontDeviation` values obtained.
+## <a name="development"></a>発達 🧑‍💻
+### <a name="developmentTODO"></a>リストを行う 🛸
+- [ ] Add balance simulation to backtesting
