@@ -4,7 +4,7 @@
 use wyhash::WyHash;
 
 pub mod heart {
-    use std::{default, hash::Hasher, process::exit};
+    use std::{hash::Hasher, process::exit};
 
     #[derive(Debug)]
     pub enum Actions {
