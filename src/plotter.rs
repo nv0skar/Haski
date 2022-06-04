@@ -19,11 +19,11 @@ pub mod plot {
     use plotters::prelude::*;
     use yahoo_finance_api::Quote;
 
-    fn getMaxValueOfData(data: &Vec<Quote>) -> f64 {
+    fn getMaxValueOfData(array: &Vec<f64>) -> f64 {
         let mut biggestValue: f64 = 0.0;
-        for tick in data {
-            if biggestValue < tick.high {
-                biggestValue = tick.high
+        for number in array {
+            if biggestValue < number.clone() {
+                biggestValue = number.clone()
             }
         }
         biggestValue
@@ -36,11 +36,15 @@ pub mod plot {
     pub fn draw(
         data: &Vec<Quote>,
         orders: &Vec<(usize, f64, u8)>,
+        balanceHistory: &Vec<(u64, f64)>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let root = BitMapBackend::new("report.png", (2294, 1490)).into_drawing_area();
         root.fill(&RGBColor(15, 18, 25))?;
 
+        let dataMaxValue = getMaxValueOfData(&data.iter().map(|tick| tick.high).collect());
+
         let mut chart = ChartBuilder::on(&root)
+            .margin(6)
             .x_label_area_size(60)
             .y_label_area_size(60)
             .caption(
@@ -50,7 +54,7 @@ pub mod plot {
             .build_cartesian_2d(
                 fromTimestamp2Date(data[0].timestamp)
                     ..fromTimestamp2Date(data.last().unwrap().timestamp),
-                0f64..getMaxValueOfData(&data),
+                0f64..dataMaxValue,
             )?;
 
         chart
@@ -58,34 +62,67 @@ pub mod plot {
             .light_line_style(&RGBColor(20, 23, 30))
             .draw()?;
 
-        chart.draw_series(data.iter().map(|tick| {
-            CandleStick::new(
-                fromTimestamp2Date(tick.timestamp),
-                tick.open,
-                tick.high,
-                tick.low,
-                tick.close,
-                &GREEN,
-                &RED,
-                2,
-            )
-        }))?;
+        chart
+            .draw_series(data.iter().map(|tick| {
+                CandleStick::new(
+                    fromTimestamp2Date(tick.timestamp),
+                    tick.open,
+                    tick.high,
+                    tick.low,
+                    tick.close,
+                    &GREEN,
+                    &RED,
+                    2,
+                )
+            }))?
+            .label("Value")
+            .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &WHITE));
 
-        chart.draw_series(orders.iter().map(|order| {
-            Circle::new(
-                (fromTimestamp2Date(data[order.0].timestamp), order.1 as f64),
-                10f32,
-                {
-                    if order.2 == 0 {
-                        &GREEN
-                    } else if order.2 == 1 {
-                        &RED
-                    } else {
-                        &WHITE
-                    }
-                },
-            )
-        }))?;
+        let maxValue2MaxBalanceRatio = dataMaxValue
+            / getMaxValueOfData(&balanceHistory.iter().map(|balance| balance.1).collect());
+
+        chart
+            .draw_series(
+                AreaSeries::new(
+                    balanceHistory.iter().map(|balance| {
+                        (
+                            fromTimestamp2Date(balance.0),
+                            (balance.1 * maxValue2MaxBalanceRatio),
+                        )
+                    }),
+                    0.0,
+                    &BLUE.mix(0.2),
+                )
+                .border_style(&BLUE),
+            )?
+            .label("Balance")
+            .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));
+
+        chart
+            .draw_series(orders.iter().map(|order| {
+                Circle::new(
+                    (fromTimestamp2Date(data[order.0].timestamp), order.1 as f64),
+                    10f32,
+                    {
+                        if order.2 == 0 {
+                            &GREEN
+                        } else if order.2 == 1 {
+                            &RED
+                        } else {
+                            &WHITE
+                        }
+                    },
+                )
+            }))?
+            .label("Operations")
+            .legend(|(x, y)| Circle::new((x + 10, y), 4i32, &WHITE));
+
+        chart
+            .configure_series_labels()
+            .label_font(("sans-serif", 32).into_font().with_color(&WHITE))
+            .border_style(&WHITE)
+            .background_style(&BLACK)
+            .draw()?;
 
         // To avoid the IO failure being ignored silently, we manually call the present function
         root.present().expect("Unable to write result to file, please make sure 'plotters-doc-data' dir exists under current dir");

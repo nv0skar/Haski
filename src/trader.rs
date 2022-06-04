@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pub mod heart {
+    use sled::Db;
     use std::{hash::Hasher, process::exit};
     use wyhash::WyHash;
 
@@ -25,7 +26,16 @@ pub mod heart {
         Hold,
     }
 
-    pub fn backtest(db: String, startDate: String, endDate: String, pair: String) {
+    pub fn backtest(
+        db: &Db,
+        startDate: String,
+        endDate: String,
+        pair: String,
+        initialBalance: f64,
+        tradeAmount: f64,
+        stopLoss: f64,
+        takeProfit: f64,
+    ) {
         let data = crate::data::fetcher::retrieve(
             crate::DateTime::<crate::Utc>::from_utc(
                 crate::NaiveDate::parse_from_str(&startDate, "%Y-%m-%d")
@@ -41,8 +51,6 @@ pub mod heart {
             ),
             &pair,
         );
-
-        let db = crate::io::file::hashPatterns::openDB(db).unwrap();
 
         let storedConfig = crate::io::file::hashPatterns::getConfig(&db);
 
@@ -70,46 +78,96 @@ pub mod heart {
 
         let mut orders: Vec<(usize, f64, u8)> = vec![];
 
-        for itemNum in 0..data.len() {
-            if itemNum < (lookBack + 1) {
+        for dataNum in 0..data.len() {
+            if dataNum < (lookBack + 1) {
                 continue;
             }
 
-            let mut patternValueDerivation: Vec<u8> = vec![];
-            for itemNumDevCalc in (itemNum - lookBack)..(itemNum) {
-                let valueDerivation = (((((data[itemNumDevCalc].close
-                    / data[itemNumDevCalc - 1].close)
+            let mut patternValueDeviation: Vec<u8> = vec![];
+            for dataNumDevCalc in (dataNum - lookBack)..(dataNum) {
+                let valueDeviation = (((((data[dataNumDevCalc].close
+                    / data[dataNumDevCalc - 1].close)
                     * 100 as f64)
                     - 100 as f64)
                     .abs())
                 .ln())
                 .round() as u8;
-                patternValueDerivation.push(valueDerivation)
+                patternValueDeviation.push(valueDeviation)
             }
 
             let mut hash = WyHash::with_seed(0);
-            hash.write(&patternValueDerivation);
+            hash.write(&patternValueDeviation);
             let calculatedHash = hash.finish();
 
             if let Some(value) =
                 crate::io::file::hashPatterns::getPattern(&db, calculatedHash).unwrap()
             {
                 match value[0] {
-                    0 => orders.push((itemNum, data[itemNum].close, 0u8)),
-                    1 => orders.push((itemNum, data[itemNum].close, 1u8)),
-                    2 => orders.push((itemNum, data[itemNum].close, 2u8)),
+                    0 => orders.push((dataNum, data[dataNum].close, 0u8)),
+                    1 => orders.push((dataNum, data[dataNum].close, 1u8)),
+                    2 => orders.push((dataNum, data[dataNum].close, 2u8)),
                     _ => {}
                 }
             }
         }
 
-        let _ = crate::plotter::plot::draw(&data, &orders);
+        let mut balance: f64 = initialBalance;
+        let mut balanceHistory: Vec<(u64, f64)> = vec![];
+        let mut conditionalOperations: Vec<(usize, f64, u8)> = vec![];
 
-        todo!("Add balance simulation to backtesting")
+        for orderNum in 1..orders.len() {
+            balance += {
+                let mut toSum: Option<f64> = Some(0.0);
+                let mut lastOperation: (usize, f64, u8) = orders[orderNum - 1];
+                for operation in &conditionalOperations {
+                    if operation.0 == orders[orderNum - 1].0 {
+                        lastOperation = operation.clone();
+                        break;
+                    }
+                }
+
+                for dataNum in orders[orderNum - 1].0..orders[orderNum].0 {
+                    if ((lastOperation.1 / data[dataNum].close) * 100.0) >= takeProfit {
+                        conditionalOperations.push((dataNum, data[dataNum].close, 1u8));
+                        toSum = Some(tradeAmount * (data[dataNum].close - lastOperation.1));
+                        break;
+                    }
+                    if ((1.0 / (lastOperation.1 / data[dataNum].close)) * 100.0) <= stopLoss {
+                        toSum = Some(tradeAmount * (data[dataNum].close - lastOperation.1));
+                        break;
+                    }
+                }
+
+                if orders[orderNum].2 == 0 {
+                    if toSum.unwrap() == 0.0 {
+                        toSum = Some(tradeAmount * (orders[orderNum].1 - lastOperation.1))
+                    }
+                } else if orders[orderNum].2 == 1 {
+                    if toSum.unwrap() == 0.0 {
+                        toSum = Some(tradeAmount * (orders[orderNum].1 - lastOperation.1))
+                    }
+                }
+                toSum.unwrap()
+            };
+            balanceHistory.push((data[orders[orderNum].0].timestamp, balance))
+        }
+
+        // tradeAmount * (data[itemNum].close / data[itemNum - 1].close).abs()
+
+        let _ = crate::plotter::plot::draw(&data, &orders, &balanceHistory);
+
+        drop(db);
+
+        crate::utils::show::print(
+            "Backtesting",
+            &format!("Finished! Final balance: {}", balance),
+        );
+
+        todo!("Test coherence of the method used to simulate balance")
     }
 
     pub fn startLearning(
-        db: String,
+        db: &Db,
         startDate: String,
         endDate: String,
         pair: String,
@@ -132,8 +190,6 @@ pub mod heart {
             ),
             &pair,
         );
-
-        let db = crate::io::file::hashPatterns::openDB(db).unwrap();
 
         let storedConfig = crate::io::file::hashPatterns::getConfig(&db);
         if let Some(value) = storedConfig.ClB.unwrap() {
@@ -178,21 +234,21 @@ pub mod heart {
         let mut patterns: Vec<usize> = vec![];
         let mut patternsAction: Vec<Actions> = vec![];
 
-        for itemNum in 0..data.len() {
-            if (itemNum < (lookBack + 1)) || ((data.len() - itemNum) < lookForwad) {
+        for dataNum in 0..data.len() {
+            if (dataNum < (lookBack + 1)) || ((data.len() - dataNum) < lookForwad) {
                 continue;
             }
             let mut sumForwardValues: f64 = 0.0;
-            for itemNumForward in itemNum..(lookForwad + itemNum) {
-                sumForwardValues += data[itemNumForward].close
+            for dataNumForward in dataNum..(lookForwad + dataNum) {
+                sumForwardValues += data[dataNumForward].close
             }
             let averageForwardValues = sumForwardValues / (lookForwad as f64);
 
             let priceDeviation =
-                ((averageForwardValues / data[itemNum].close) * 100 as f64) - 100 as f64;
+                ((averageForwardValues / data[dataNum].close) * 100 as f64) - 100 as f64;
 
             if priceDeviation.abs() >= patternThreshold as f64 {
-                patterns.push(itemNum);
+                patterns.push(dataNum);
                 if priceDeviation > 1 as f64 {
                     patternsAction.push(Actions::Buy)
                 } else if priceDeviation < -1 as f64 {
@@ -203,34 +259,34 @@ pub mod heart {
             }
         }
 
-        for itemNum in 0..patterns.len() {
-            let mut patternValueDerivation: Vec<u8> = vec![];
-            for itemNumDevCalc in (patterns[itemNum] - lookBack)..(patterns[itemNum]) {
-                let valueDerivation = (((((data[itemNumDevCalc].close
-                    / data[itemNumDevCalc - 1].close)
+        for dataNum in 0..patterns.len() {
+            let mut patternValueDeviation: Vec<u8> = vec![];
+            for dataNumDevCalc in (patterns[dataNum] - lookBack)..(patterns[dataNum]) {
+                let valueDeviation = (((((data[dataNumDevCalc].close
+                    / data[dataNumDevCalc - 1].close)
                     * 100 as f64)
                     - 100 as f64)
                     .abs())
                 .ln())
                 .round() as u8;
-                patternValueDerivation.push(valueDerivation)
+                patternValueDeviation.push(valueDeviation)
             }
 
             let mut hash = WyHash::with_seed(0);
-            hash.write(&patternValueDerivation);
+            hash.write(&patternValueDeviation);
             let calculatedHash = hash.finish();
 
             let _ = crate::io::file::hashPatterns::writePattern(
                 &db,
                 calculatedHash,
-                &patternsAction[itemNum],
+                &patternsAction[dataNum],
             );
             patternsFound += 1;
             crate::utils::show::print(
                 "Learner",
                 &format!(
                     "#{} pattern found! Hash: {}; Signal: {:?}",
-                    &patternsFound, &calculatedHash, &patternsAction[itemNum]
+                    &patternsFound, &calculatedHash, &patternsAction[dataNum]
                 ),
             )
         }

@@ -32,4 +32,4 @@ The Haski's algorithm iterate through all the values in a dataset. The process o
 **I hope that I didn't forget anything 🥲**
 ## <a name="development"></a>発達 🧑‍💻
 ### <a name="developmentTODO"></a>リストを行う 🛸
-- [ ] Add balance simulation to backtesting
+- [x] Add balance simulation to backtesting

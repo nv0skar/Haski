@@ -51,6 +51,14 @@ pub mod parser {
             startDate: String,
             #[clap(long, default_value = crate::config::defaults::trade::END_DATE)]
             endDate: String,
+            #[clap(long, default_value_t = crate::config::defaults::trade::INITIAL_BALANCE)]
+            initialBalance: f64,
+            #[clap(long, default_value_t = crate::config::defaults::trade::TRADE_AMOUNT)]
+            tradeAmount: f64,
+            #[clap(long, default_value_t = crate::config::defaults::trade::STOP_LOSS)]
+            stopLoss: f64,
+            #[clap(long, default_value_t = crate::config::defaults::trade::TAKE_PROFIT)]
+            takeProfit: f64,
         },
     }
 
