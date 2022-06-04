@@ -124,10 +124,13 @@ pub mod heart {
                 }
             }
             if !orders.is_empty() {
-                if ((orders.last().unwrap().1 / data[dataNum].close) * 100.0) >= takeProfit {
+                if (((orders.last().unwrap().1 / data[dataNum].close) * 100.0) >= takeProfit)
+                    && (orders.last().unwrap().2 != 2u8)
+                {
                     orders.push((dataNum, data[dataNum].close, 2u8));
-                } else if ((1.0 / (orders.last().unwrap().1 / data[dataNum].close)) * 100.0)
-                    <= stopLoss
+                } else if (((1.0 / (orders.last().unwrap().1 / data[dataNum].close)) * 100.0)
+                    <= stopLoss)
+                    && (orders.last().unwrap().2 != 2u8)
                 {
                     orders.push((dataNum, data[dataNum].close, 2u8));
                 }

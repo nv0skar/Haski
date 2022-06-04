@@ -38,13 +38,12 @@ pub mod plot {
         orders: &Vec<(usize, f64, u8)>,
         balanceHistory: &Vec<(usize, f64)>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let root = BitMapBackend::new("report.png", (2294, 1490)).into_drawing_area();
+        let root = BitMapBackend::new("report.png", (3840, 2160)).into_drawing_area();
         root.fill(&RGBColor(15, 18, 25))?;
 
         let dataMaxValue = getMaxValueOfData(&data.iter().map(|tick| tick.high).collect());
 
         let mut chart = ChartBuilder::on(&root)
-            .margin(6)
             .x_label_area_size(60)
             .y_label_area_size(60)
             .caption(
