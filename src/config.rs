@@ -24,7 +24,7 @@ pub mod defaults {
         pub const START_DATE: &str = "2015-01-01";
         pub const END_DATE: &str = "2020-01-01";
         pub const INITIAL_BALANCE: f64 = 1000.0;
-        pub const TRADE_AMOUNT: f64 = 1.0;
+        pub const TRADE_AMOUNT: f64 = 50.0;
         pub const STOP_LOSS: f64 = 1.0;
         pub const TAKE_PROFIT: f64 = 10.0;
     }

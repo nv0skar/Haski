@@ -14,26 +14,32 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod file {
-    pub mod hashPatterns {
-        use sled::{open, Db, Result};
-        pub struct ConfigRetrieve {
-            pub CsT: Result<Option<sled::IVec>>,
-            pub ClB: Result<Option<sled::IVec>>,
-            pub ClF: Result<Option<sled::IVec>>,
-            pub CpT: Result<Option<sled::IVec>>,
+pub mod db {
+    use sled::{open, Db, Result};
+
+    #[derive(Default)]
+    pub struct Database {
+        db: Option<Db>,
+    }
+
+    pub struct Config {
+        pub CsT: Result<Option<sled::IVec>>,
+        pub ClB: Result<Option<sled::IVec>>,
+        pub ClF: Result<Option<sled::IVec>>,
+        pub CpT: Result<Option<sled::IVec>>,
+    }
+
+    impl Database {
+        pub fn open(&mut self, db: String) {
+            self.db = Some(open(db).unwrap())
         }
 
-        pub fn openDB(db: String) -> Result<Db> {
-            open(db)
-        }
-
-        pub fn getPattern(db: &Db, hash: u64) -> Result<Option<sled::IVec>> {
-            db.get(hash.to_string())
+        pub fn getPattern(&mut self, hash: u64) -> Result<Option<sled::IVec>> {
+            self.db.as_ref().unwrap().get(hash.to_string())
         }
 
         pub fn writePattern(
-            db: &Db,
+            &mut self,
             hash: u64,
             action: &crate::trader::heart::Actions,
         ) -> Result<()> {
@@ -43,21 +49,25 @@ pub mod file {
                 crate::trader::heart::Actions::Sell => actionBytes = (0x01 as u8).to_be_bytes(),
                 crate::trader::heart::Actions::Hold => actionBytes = (0x02 as u8).to_be_bytes(),
             }
-            let _ = db.insert(hash.to_string(), &actionBytes)?;
+            let _ = self
+                .db
+                .as_ref()
+                .unwrap()
+                .insert(hash.to_string(), &actionBytes)?;
             Ok(())
         }
 
-        pub fn getConfig(db: &Db) -> ConfigRetrieve {
-            ConfigRetrieve {
-                CsT: (db.get("CsT")),
-                ClB: (db.get("ClB")),
-                ClF: (db.get("ClF")),
-                CpT: (db.get("CpT")),
+        pub fn getConfig(&mut self) -> Config {
+            Config {
+                CsT: (self.db.as_ref().unwrap().get("CsT")),
+                ClB: (self.db.as_ref().unwrap().get("ClB")),
+                ClF: (self.db.as_ref().unwrap().get("ClF")),
+                CpT: (self.db.as_ref().unwrap().get("CpT")),
             }
         }
 
         pub fn writeConfig(
-            db: &Db,
+            &mut self,
             lookBack: usize,
             lookForward: usize,
             patternThreshold: usize,
@@ -67,11 +77,20 @@ pub mod file {
                 ("ClF", lookForward.to_be_bytes()),
                 ("CpT", patternThreshold.to_be_bytes()),
             ]);
-            let _ = db.insert("CsT", &0x00_i32.to_be_bytes());
+            let _ = self
+                .db
+                .as_ref()
+                .unwrap()
+                .insert("CsT", &0x00_i32.to_be_bytes());
             for (key, value) in toInsert {
-                db.insert(key, &value)?;
+                self.db.as_ref().unwrap().insert(key, &value)?;
             }
             Ok(())
+        }
+
+        pub fn close(&mut self) {
+            let _ = self.db.as_ref().unwrap().flush();
+            drop(self.db.as_ref());
         }
     }
 }

@@ -36,7 +36,7 @@ pub mod plot {
     pub fn draw(
         data: &Vec<Quote>,
         orders: &Vec<(usize, f64, u8)>,
-        balanceHistory: &Vec<(u64, f64)>,
+        balanceHistory: &Vec<(usize, f64)>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let root = BitMapBackend::new("report.png", (2294, 1490)).into_drawing_area();
         root.fill(&RGBColor(15, 18, 25))?;
@@ -86,7 +86,7 @@ pub mod plot {
                 AreaSeries::new(
                     balanceHistory.iter().map(|balance| {
                         (
-                            fromTimestamp2Date(balance.0),
+                            fromTimestamp2Date(data[balance.0].timestamp),
                             (balance.1 * maxValue2MaxBalanceRatio),
                         )
                     }),
@@ -104,17 +104,18 @@ pub mod plot {
                     (fromTimestamp2Date(data[order.0].timestamp), order.1 as f64),
                     10f32,
                     {
-                        if order.2 == 0 {
+                        // println!("{:?}", order);
+                        if order.2 == 0u8 {
                             &GREEN
-                        } else if order.2 == 1 {
+                        } else if order.2 == 1u8 {
                             &RED
                         } else {
-                            &WHITE
+                            &MAGENTA
                         }
                     },
                 )
             }))?
-            .label("Operations")
+            .label("Orders")
             .legend(|(x, y)| Circle::new((x + 10, y), 4i32, &WHITE));
 
         chart

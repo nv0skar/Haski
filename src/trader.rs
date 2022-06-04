@@ -15,7 +15,6 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pub mod heart {
-    use sled::Db;
     use std::{hash::Hasher, process::exit};
     use wyhash::WyHash;
 
@@ -27,7 +26,7 @@ pub mod heart {
     }
 
     pub fn backtest(
-        db: &Db,
+        db: &mut crate::io::db::Database,
         startDate: String,
         endDate: String,
         pair: String,
@@ -52,15 +51,15 @@ pub mod heart {
             &pair,
         );
 
-        let storedConfig = crate::io::file::hashPatterns::getConfig(&db);
+        let storedConfig = db.getConfig();
 
         let lookBack: usize;
 
         if let Some(_) = &storedConfig.CsT.unwrap() {
         } else {
-            drop(&db);
+            db.close();
             crate::utils::show::printError(
-                "Learner",
+                "Backtesting",
                 &String::from("No training database was found!"),
             );
             exit(1);
@@ -68,21 +67,29 @@ pub mod heart {
         if let Some(value) = &storedConfig.ClB.unwrap() {
             lookBack = value[7] as usize
         } else {
-            drop(&db);
+            db.close();
             crate::utils::show::printError(
-                "Learner",
+                "Backtesting",
                 &String::from("Previous values to get is not defined in the database!"),
+            );
+            exit(1);
+        }
+        if ((lookBack + 1) >= data.len()) || (lookBack > 128) {
+            db.close();
+            crate::utils::show::printError(
+                "Backtesting",
+                &format!(
+                    "Invalid previous values value! (Ticks: {}; Previous Values: {})",
+                    data.len(),
+                    lookBack,
+                ),
             );
             exit(1);
         }
 
         let mut orders: Vec<(usize, f64, u8)> = vec![];
 
-        for dataNum in 0..data.len() {
-            if dataNum < (lookBack + 1) {
-                continue;
-            }
-
+        for dataNum in (lookBack + 1)..data.len() {
             let mut patternValueDeviation: Vec<u8> = vec![];
             for dataNumDevCalc in (dataNum - lookBack)..(dataNum) {
                 let valueDeviation = (((((data[dataNumDevCalc].close
@@ -99,75 +106,62 @@ pub mod heart {
             hash.write(&patternValueDeviation);
             let calculatedHash = hash.finish();
 
-            if let Some(value) =
-                crate::io::file::hashPatterns::getPattern(&db, calculatedHash).unwrap()
-            {
+            if let Some(value) = db.getPattern(calculatedHash).unwrap() {
                 match value[0] {
-                    0 => orders.push((dataNum, data[dataNum].close, 0u8)),
-                    1 => orders.push((dataNum, data[dataNum].close, 1u8)),
-                    2 => orders.push((dataNum, data[dataNum].close, 2u8)),
+                    0 => {
+                        orders.push((dataNum, data[dataNum].close, 0u8));
+                        continue;
+                    }
+                    1 => {
+                        orders.push((dataNum, data[dataNum].close, 1u8));
+                        continue;
+                    }
+                    2 => {
+                        orders.push((dataNum, data[dataNum].close, 2u8));
+                        continue;
+                    }
                     _ => {}
+                }
+            }
+            if !orders.is_empty() {
+                if ((orders.last().unwrap().1 / data[dataNum].close) * 100.0) >= takeProfit {
+                    orders.push((dataNum, data[dataNum].close, 2u8));
+                } else if ((1.0 / (orders.last().unwrap().1 / data[dataNum].close)) * 100.0)
+                    <= stopLoss
+                {
+                    orders.push((dataNum, data[dataNum].close, 2u8));
                 }
             }
         }
 
         let mut balance: f64 = initialBalance;
-        let mut balanceHistory: Vec<(u64, f64)> = vec![];
-        let mut conditionalOperations: Vec<(usize, f64, u8)> = vec![];
+        let mut balanceHistory: Vec<(usize, f64)> = vec![];
 
         for orderNum in 1..orders.len() {
             balance += {
-                let mut toSum: Option<f64> = Some(0.0);
-                let mut lastOperation: (usize, f64, u8) = orders[orderNum - 1];
-                for operation in &conditionalOperations {
-                    if operation.0 == orders[orderNum - 1].0 {
-                        lastOperation = operation.clone();
-                        break;
-                    }
+                if orders[orderNum].2 == 0u8 {
+                    tradeAmount / orders[orderNum - 1].1
+                } else if orders[orderNum].2 == 1u8 {
+                    -tradeAmount / orders[orderNum - 1].1
+                } else {
+                    0.0
                 }
-
-                for dataNum in orders[orderNum - 1].0..orders[orderNum].0 {
-                    if ((lastOperation.1 / data[dataNum].close) * 100.0) >= takeProfit {
-                        conditionalOperations.push((dataNum, data[dataNum].close, 1u8));
-                        toSum = Some(tradeAmount * (data[dataNum].close - lastOperation.1));
-                        break;
-                    }
-                    if ((1.0 / (lastOperation.1 / data[dataNum].close)) * 100.0) <= stopLoss {
-                        toSum = Some(tradeAmount * (data[dataNum].close - lastOperation.1));
-                        break;
-                    }
-                }
-
-                if orders[orderNum].2 == 0 {
-                    if toSum.unwrap() == 0.0 {
-                        toSum = Some(tradeAmount * (orders[orderNum].1 - lastOperation.1))
-                    }
-                } else if orders[orderNum].2 == 1 {
-                    if toSum.unwrap() == 0.0 {
-                        toSum = Some(tradeAmount * (orders[orderNum].1 - lastOperation.1))
-                    }
-                }
-                toSum.unwrap()
-            };
-            balanceHistory.push((data[orders[orderNum].0].timestamp, balance))
+            } * (orders[orderNum].1 - orders[orderNum - 1].1);
+            balanceHistory.push((orders[orderNum].0, balance))
         }
-
-        // tradeAmount * (data[itemNum].close / data[itemNum - 1].close).abs()
 
         let _ = crate::plotter::plot::draw(&data, &orders, &balanceHistory);
 
-        drop(db);
+        db.close();
 
         crate::utils::show::print(
             "Backtesting",
             &format!("Finished! Final balance: {}", balance),
         );
-
-        todo!("Test coherence of the method used to simulate balance")
     }
 
     pub fn startLearning(
-        db: &Db,
+        db: &mut crate::io::db::Database,
         startDate: String,
         endDate: String,
         pair: String,
@@ -191,12 +185,12 @@ pub mod heart {
             &pair,
         );
 
-        let storedConfig = crate::io::file::hashPatterns::getConfig(&db);
+        let storedConfig = db.getConfig();
         if let Some(value) = storedConfig.ClB.unwrap() {
             if ((value[7] as usize) != lookBack)
                 && (lookBack != crate::config::defaults::learn::PREVIOUS_VALUES)
             {
-                drop(&db);
+                db.close();
                 crate::utils::show::printError("Learner", &format!("Previous values to get is different from the one in the database! (Value: {})", (value[7] as usize)));
                 exit(1);
             }
@@ -205,11 +199,11 @@ pub mod heart {
             if ((value[7] as usize) != lookForwad)
                 && (lookForwad != crate::config::defaults::learn::FORWAD_VALUES)
             {
-                drop(&db);
+                db.close();
                 crate::utils::show::printError(
                     "Learner",
                     &format!(
-                        "Next values to get is different from the one in the database! (Value: {})",
+                        "Following values to get is different from the one in the database! (Value: {})",
                         (value[7] as usize)
                     ),
                 );
@@ -220,24 +214,35 @@ pub mod heart {
             if ((value[7] as usize) != patternThreshold)
                 && (patternThreshold != crate::config::defaults::learn::PATTERN_THRESHOLD)
             {
-                drop(&db);
+                db.close();
                 crate::utils::show::printError("Learner", &format!("Pattern Threshold value is different from the one in the database! (Value: {})", (value[7] as usize)));
                 exit(1);
             }
         }
+        if ((lookBack + 1) as isize >= (data.len() as isize - lookForwad as isize))
+            || (lookBack > 128 || lookForwad > 128)
+        {
+            db.close();
+            crate::utils::show::printError(
+                "Learner",
+                &format!(
+                    "Invalid previous values/following values value! (Ticks: {}; Previous Values: {}; Forwad Values: {})",
+                    data.len(),
+                    lookBack,
+                    lookForwad
+                ),
+            );
+            exit(1);
+        }
 
-        let _ =
-            crate::io::file::hashPatterns::writeConfig(&db, lookBack, lookForwad, patternThreshold);
+        let _ = db.writeConfig(lookBack, lookForwad, patternThreshold);
 
         let mut patternsFound: usize = 0;
 
         let mut patterns: Vec<usize> = vec![];
         let mut patternsAction: Vec<Actions> = vec![];
 
-        for dataNum in 0..data.len() {
-            if (dataNum < (lookBack + 1)) || ((data.len() - dataNum) < lookForwad) {
-                continue;
-            }
+        for dataNum in (lookBack + 1)..(data.len() - lookForwad) {
             let mut sumForwardValues: f64 = 0.0;
             for dataNumForward in dataNum..(lookForwad + dataNum) {
                 sumForwardValues += data[dataNumForward].close
@@ -276,11 +281,8 @@ pub mod heart {
             hash.write(&patternValueDeviation);
             let calculatedHash = hash.finish();
 
-            let _ = crate::io::file::hashPatterns::writePattern(
-                &db,
-                calculatedHash,
-                &patternsAction[dataNum],
-            );
+            let _ = db.writePattern(calculatedHash, &patternsAction[dataNum]);
+
             patternsFound += 1;
             crate::utils::show::print(
                 "Learner",
@@ -291,7 +293,7 @@ pub mod heart {
             )
         }
 
-        drop(db);
+        db.close();
 
         crate::utils::show::print("Learner", &format!("Training finished! Patterns found: {}; Pair {}; Start date: {}; End date: {}; Pattern threshold: {}; Previous values feed: {}; Forwad values feed: {}", &patternsFound, &pair, &startDate, &endDate, &patternThreshold, &lookBack, &lookForwad))
     }

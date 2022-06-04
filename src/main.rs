@@ -30,7 +30,8 @@ use std::collections::HashMap;
 fn main() {
     let parsed = cli::parser::parse();
     utils::show::printTitle("Haski");
-    let db = io::file::hashPatterns::openDB(parsed.dbLocation).unwrap();
+    let mut db = io::db::Database::default();
+    db.open(parsed.dbLocation);
     match parsed.command {
         cli::parser::Subcommands::Train {
             pair,
@@ -41,7 +42,7 @@ fn main() {
             patternThreshold,
         } => {
             trader::heart::startLearning(
-                &db,
+                &mut db,
                 startDate,
                 endDate,
                 pair,
@@ -60,7 +61,7 @@ fn main() {
             takeProfit,
         } => {
             trader::heart::backtest(
-                &db,
+                &mut db,
                 startDate,
                 endDate,
                 pair,
