@@ -95,7 +95,7 @@ pub mod plot {
                 )
                 .border_style(&BLUE),
             )?
-            .label("Balance")
+            .label("Balance (Scaled to fit)")
             .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));
 
         chart
