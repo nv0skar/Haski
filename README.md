@@ -25,6 +25,7 @@ The Haski's algorithm iterate through all the values in a dataset. The process o
     Where:
    - `h` one of those previous values
    - `z` the value before `h`
+
     And:
    - `round()` round the number to have no decimals
 5. Lastly, calculate a hash of all of the `back2FrontDeviation` values obtained.
