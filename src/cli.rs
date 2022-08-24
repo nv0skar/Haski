@@ -38,7 +38,7 @@ pub mod parser {
             endDate: String,
             #[clap(long, default_value_t = crate::config::defaults::learn::PREVIOUS_VALUES)]
             previousValues: usize,
-            #[clap(long, default_value_t = crate::config::defaults::learn::FORWAD_VALUES)]
+            #[clap(long, default_value_t = crate::config::defaults::learn::FORWARD_VALUES)]
             forwadValues: usize,
             #[clap(long, default_value_t = crate::config::defaults::learn::PATTERN_THRESHOLD)]
             patternThreshold: usize,

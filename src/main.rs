@@ -19,18 +19,25 @@
 mod cli;
 mod config;
 mod data;
-mod io;
+mod db;
 mod plotter;
 mod trader;
 mod utils;
 
-use chrono::{Date, DateTime, Local, NaiveDate, Utc};
+use crate::utils::Print;
+
 use std::collections::HashMap;
 
 fn main() {
     let parsed = cli::parser::parse();
-    utils::show::printTitle("Haski");
-    let mut db = io::db::Database::default();
+
+    Print::show(
+        Print::PrintType::Beauty,
+        None,
+        env!("CARGO_PKG_NAME").to_string(),
+    );
+
+    let mut db = db::Database::default();
     db.open(parsed.dbLocation);
     match parsed.command {
         cli::parser::Subcommands::Train {
@@ -41,7 +48,7 @@ fn main() {
             forwadValues,
             patternThreshold,
         } => {
-            trader::heart::startLearning(
+            trader::train(
                 &mut db,
                 startDate,
                 endDate,
@@ -60,7 +67,7 @@ fn main() {
             stopLoss,
             takeProfit,
         } => {
-            trader::heart::backtest(
+            trader::backtest(
                 &mut db,
                 startDate,
                 endDate,

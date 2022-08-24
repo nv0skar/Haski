@@ -14,18 +14,26 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use chrono::{DateTime, Utc};
 use tokio_test;
 use yahoo_finance_api as dataProvider;
 
-pub mod fetcher {
-    pub fn retrieve(
-        start: crate::DateTime<crate::Utc>,
-        end: crate::DateTime<crate::Utc>,
-        pair: &String,
-    ) -> Vec<super::dataProvider::Quote> {
-        let provider = super::dataProvider::YahooConnector::new();
-        let resp =
-            super::tokio_test::block_on(provider.get_quote_history(&pair, start, end)).unwrap();
-        resp.quotes().unwrap()
+pub fn retrieve(
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+    pair: &String,
+) -> Vec<dataProvider::Quote> {
+    let provider = dataProvider::YahooConnector::new();
+    let resp = tokio_test::block_on(provider.get_quote_history(&pair, start, end)).unwrap();
+    resp.quotes().unwrap()
+}
+
+pub fn maxValue(data: &Vec<f64>) -> f64 {
+    let mut biggestValue: f64 = 0.0;
+    for number in data {
+        if biggestValue < number.clone() {
+            biggestValue = number.clone()
+        }
     }
+    biggestValue
 }

@@ -31,7 +31,7 @@ pub mod defaults {
 
     pub mod learn {
         pub const PREVIOUS_VALUES: usize = 16;
-        pub const FORWAD_VALUES: usize = 16;
+        pub const FORWARD_VALUES: usize = 16;
         pub const PATTERN_THRESHOLD: usize = 15;
     }
 }

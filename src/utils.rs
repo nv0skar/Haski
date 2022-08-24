@@ -14,16 +14,41 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod show {
+pub mod Convert {
+    use chrono::{Date, Local, TimeZone};
+
+    pub fn fromTimestamp2Date(timestamp: u64) -> Date<Local> {
+        Local.timestamp(timestamp as i64, 0).date()
+    }
+}
+
+pub mod Print {
     use colored::Colorize;
 
-    pub fn print(origin: &str, data: &String) {
-        println!("{} {}", format!("({})", origin).bold().yellow(), data)
+    #[derive(PartialEq)]
+    pub enum PrintType {
+        Beauty,
+        Info,
+        Error,
     }
-    pub fn printError(origin: &str, data: &String) {
-        println!("{} {}", format!("(ERROR at {})", origin).bold().red(), data)
-    }
-    pub fn printTitle(data: &str) {
-        println!("{}", format!("--- {} ---", data).bright_white())
+
+    pub fn show(kind: PrintType, src: Option<String>, data: String) {
+        if kind != PrintType::Beauty && src.is_none() {
+            panic!("Tried to show message, but no source was provided!")
+        }
+        match kind {
+            PrintType::Beauty => println!("{}", format!("--- {} ---", data).bright_white()),
+            PrintType::Info => {
+                println!("{} {}", format!("({})", src.unwrap()).yellow().bold(), data)
+            }
+            PrintType::Error => {
+                println!(
+                    "{} {}",
+                    format!("(ERROR at {})", src.unwrap()).bold().red(),
+                    data
+                );
+                panic!("{}", data);
+            }
+        }
     }
 }
