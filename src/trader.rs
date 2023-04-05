@@ -41,13 +41,15 @@ pub fn backtest(
         DateTime::<Utc>::from_utc(
             NaiveDate::parse_from_str(&startDate, "%Y-%m-%d")
                 .unwrap()
-                .and_hms(0, 0, 0),
+                .and_hms_opt(0, 0, 0)
+                .unwrap(),
             Utc,
         ),
         DateTime::<Utc>::from_utc(
             NaiveDate::parse_from_str(&endDate, "%Y-%m-%d")
                 .unwrap()
-                .and_hms(23, 59, 59),
+                .and_hms_opt(23, 59, 59)
+                .unwrap(),
             Utc,
         ),
         &pair,
@@ -179,13 +181,15 @@ pub fn train(
         DateTime::<Utc>::from_utc(
             NaiveDate::parse_from_str(&startDate, "%Y-%m-%d")
                 .unwrap()
-                .and_hms(0, 0, 0),
+                .and_hms_opt(0, 0, 0)
+                .unwrap(),
             Utc,
         ),
         DateTime::<Utc>::from_utc(
             NaiveDate::parse_from_str(&endDate, "%Y-%m-%d")
                 .unwrap()
-                .and_hms(23, 59, 59),
+                .and_hms_opt(23, 59, 59)
+                .unwrap(),
             Utc,
         ),
         &pair,

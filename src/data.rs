@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use chrono::{DateTime, Utc};
+use time::OffsetDateTime;
 use tokio_test;
 use yahoo_finance_api as dataProvider;
 
@@ -24,7 +25,12 @@ pub fn retrieve(
     pair: &String,
 ) -> Vec<dataProvider::Quote> {
     let provider = dataProvider::YahooConnector::new();
-    let resp = tokio_test::block_on(provider.get_quote_history(&pair, start, end)).unwrap();
+    let resp = tokio_test::block_on(provider.get_quote_history(
+        &pair,
+        OffsetDateTime::from_unix_timestamp(start.timestamp()).unwrap(),
+        OffsetDateTime::from_unix_timestamp(end.timestamp()).unwrap(),
+    ))
+    .unwrap();
     resp.quotes().unwrap()
 }
 

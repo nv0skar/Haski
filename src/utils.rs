@@ -15,10 +15,13 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pub mod Convert {
-    use chrono::{Date, Local, TimeZone};
+    use chrono::{Local, NaiveDate, TimeZone};
 
-    pub fn fromTimestamp2Date(timestamp: u64) -> Date<Local> {
-        Local.timestamp(timestamp as i64, 0).date()
+    pub fn fromTimestamp2Date(timestamp: u64) -> NaiveDate {
+        Local
+            .timestamp_opt(timestamp as i64, 0)
+            .unwrap()
+            .date_naive()
     }
 }
 
