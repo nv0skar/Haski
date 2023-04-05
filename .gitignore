@@ -1,5 +1,6 @@
 **/.vscode
 **/.DS_Store
+**/Cargo.lock
 **/target
 **/training
-**/report.png
+**/report.*
